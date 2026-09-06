@@ -1,0 +1,66 @@
+# Igloo BDD specs. Mirrors the salvage-run shape: one binary per spec area,
+# linked from specs/main.cpp via igloo::TestRunner. Iterating on one area
+# avoids linking the whole suite — igloo has no CLI filter, so narrowing the
+# link is the only way to shorten the loop.
+#
+#   make -f Makefile.specs test          # all specs
+#   make -f Makefile.specs test-aim      # one area
+#
+# `area` matches a filename substring under specs/. A flat *.spec.cpp at the
+# root is run by `make -f Makefile.specs test` only — there is no per-file
+# target.
+
+CXX      := g++
+CXXFLAGS := -std=c++17 -Wall -Wextra -Wno-missing-field-initializers -g \
+            -I/usr/local/include -Isrc
+LDFLAGS  := -L/usr/local/lib -Wl,-rpath=/usr/local/lib \
+            -lstormenginev2 -lSDL2 -lSDL2_image -lSDL2_ttf
+
+SPECDIR  := specs
+BUILD    := build/specs
+
+SPECSRCS := $(shell find $(SPECDIR) -name '*.cpp')
+SPECOBJS := $(patsubst $(SPECDIR)/%.cpp, $(BUILD)/%.o, $(SPECSRCS))
+TEST_BIN := $(BUILD)/tests
+
+# Implementation files linked into every spec binary. The functions last-stand
+# keeps testable are pure, header-only free functions (aim, camera, regen, the
+# spawn curve), so nothing needs linking until a spec exercises a .cpp. Arena
+# is the first .cpp: its IsSolid/PixelSize are tested against a fixture map.
+IMPL_SRC := src/arena/arena.cpp \
+            src/arena/walls.cpp \
+            src/combat/bulletPool.cpp \
+            src/entities/factory.cpp \
+            src/systems/brain.cpp
+
+# `test-%` runs every spec whose filename contains the given substring.
+AREA_SRCS = $(shell find $(SPECDIR) -name '*$(AREA)*.spec.cpp')
+AREA_OBJS = $(patsubst $(SPECDIR)/%.cpp, $(BUILD)/%.o, $(AREA_SRCS))
+
+.PHONY: all test test-% area-run clean
+
+all: $(TEST_BIN)
+
+test: $(TEST_BIN)
+	$(TEST_BIN)
+
+test-%:
+	@$(MAKE) --no-print-directory -f Makefile.specs area-run AREA=$*
+
+area-run: $(BUILD)/main.o $(AREA_OBJS) $(IMPL_SRC)
+	@test -n "$(AREA_SRCS)" || { echo "no specs matching '$(AREA)' under $(SPECDIR)/"; exit 1; }
+	@mkdir -p $(BUILD)
+	$(CXX) $(CXXFLAGS) -o $(BUILD)/tests-$(AREA) \
+	  $(BUILD)/main.o $(AREA_OBJS) $(IMPL_SRC) $(LDFLAGS)
+	./$(BUILD)/tests-$(AREA)
+
+$(TEST_BIN): $(SPECOBJS) $(IMPL_SRC)
+	@mkdir -p $(BUILD)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(BUILD)/%.o: $(SPECDIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(BUILD)
