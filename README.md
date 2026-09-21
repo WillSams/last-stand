@@ -15,7 +15,7 @@ Clean C++17, no frameworks beyond SDL2 + the engine. Build: `make && make run`.
 
 ![Last Stand](screenshot.png)
 
-Built on [Storm! Engine v2](https://github.com/SamsWebs/storm-engine-v2) 2.3.0.
+Built on [Storm! Engine v2](https://github.com/SamsWebs/storm-engine-v2) 2.3.1.
 
 ## Controls
 
@@ -66,7 +66,7 @@ Download the SDK zip from the [Storm! Engine releases](https://github.com/SamsWe
 
 ```bash
 sudo apt install mingw-w64
-make -f Makefile.win SDK=~/sdk/stormengine2-2.3.0-win64
+make -f Makefile.win SDK=~/sdk/stormengine2-2.3.1-win64
 ```
 
 **MinGW-w64 only.** MSVC cannot link this, the import library and C++ ABI are GCC's.
