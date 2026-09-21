@@ -6,7 +6,7 @@
 #include <stormengine2/gameStateMachine.h>
 #include <stormengine2/logger.h>
 
-#include "states/playState.h"
+#include "states/titleState.h"
 
 using namespace storm;
 
