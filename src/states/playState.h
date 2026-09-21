@@ -15,6 +15,7 @@
 
 #include "../arena/arena.h"
 #include "../combat/bulletPool.h"
+#include "../score/score.h"
 
 using namespace storm;
 
@@ -107,6 +108,11 @@ private:
     unsigned spawnSeed_ = 12345;
     bool dead_ = false;
     float deadTime_ = 0.0f;
+    // Best run, persisted across sessions. Loaded in onEnter, submitted on
+    // death; the score IS the survival time.
+    last_stand::ScoreStore scoreStore_{"./last-stand.sav"};
+    last_stand::ScoreBoard scoreBoard_;
+    bool newBest_ = false;
     float regenCarry_ = 0.0f;
     storm::Gamepad gamepad_;
     bool padAim_ = false;

@@ -1,7 +1,5 @@
 #include "playState.h"
 
-#include <cstdio>
-
 #include "../arena/camera.h"
 #include "../combat/bulletPool.h"
 #include "../combat/pickups.h"
@@ -55,6 +53,7 @@ PlayState::~PlayState() {}
 // after pushing the state; clean() calls onExit() before deleting it.
 bool PlayState::onEnter() {
     LoadAssets();
+    scoreBoard_ = scoreStore_.Load();
 
     // Build the arena before entities so the player spawns inside a solid
     // world and can resolve against it the same frame.
@@ -513,7 +512,14 @@ void PlayState::update() {
         } else {
             regenCarry_ = 0.0f;
         }
-        if (h.hp <= 0 && !dead_) { dead_ = true; deadTime_ = elapsed_; }
+        if (h.hp <= 0 && !dead_) {
+            dead_ = true;
+            deadTime_ = elapsed_;
+            // The score IS the survival time. Submit once, on the death edge,
+            // and persist only when it is a new best.
+            newBest_ = last_stand::Submit(scoreBoard_, static_cast<int>(deadTime_));
+            if (newBest_) scoreStore_.Save(scoreBoard_);
+        }
     }
     // Continuous spawn: budget accumulator, never burst-catch-up (cap 3).
     if (!dead_) {
@@ -563,6 +569,7 @@ void PlayState::update() {
             player_->GetComponent<TransformComponent>().position = {400, 300};
             elapsed_ = 0; spawnBudget_ = 0; dead_ = false;
             fireInterval_ = 0.15f;
+            newBest_ = false;
             player_->GetComponent<SpriteComponent>().assetId = "player";
         }
     }
@@ -627,35 +634,66 @@ void PlayState::render() {
         if (registry_.DoesGroupExist("pickups"))
             for (auto &e : registry_.GetEntitiesByGroup("pickups")) dot(e.GetComponent<TransformComponent>().position, 2, 255, 255, 0);
         if (dead_) {
-            // Death overlay: dim the world, tombstone panel with words.
+            // Death overlay: dim the world, then a panel sized to its own
+            // text so no line can collide at any point size.
             SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
             SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 160);
             SDL_Rect dim{0, 0, windowWidth_, windowHeight_};
             SDL_RenderFillRect(renderer_, &dim);
             SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
-            SDL_Rect box{windowWidth_ / 2 - 170, windowHeight_ / 2 - 70, 340, 140};
+
+            TTF_Font *big = assetStore_->GetFont("hudBig");
+            TTF_Font *hud = assetStore_->GetFont("hud");
+            const std::string title = "YOU DIED";
+            const std::string survived =
+                "Survived " + last_stand::FormatClock(static_cast<int>(deadTime_));
+            const std::string best =
+                newBest_ ? std::string("NEW BEST!")
+                         : "Best " + last_stand::FormatClock(scoreBoard_.bestSeconds);
+            const std::string retry = "Press R to retry";
+
+            const int gap = 8;
+            const int pad = 20;
+            const int contentH = storm::Text::Measure(big, title).y + gap +
+                                 storm::Text::Measure(hud, survived).y + gap +
+                                 storm::Text::Measure(hud, best).y + 2 * gap +
+                                 storm::Text::Measure(hud, retry).y;
+            const SDL_Rect box{windowWidth_ / 2 - 190,
+                               windowHeight_ / 2 - (contentH + 2 * pad) / 2, 380,
+                               contentH + 2 * pad};
             SDL_SetRenderDrawColor(renderer_, 20, 0, 0, 255);
             SDL_RenderFillRect(renderer_, &box);
             SDL_SetRenderDrawColor(renderer_, 255, 255, 255, 255);
             SDL_RenderDrawRect(renderer_, &box);
+
             const SDL_Color white{255, 255, 255, 255};
             const SDL_Color grey{180, 180, 180, 255};
-            int cx = windowWidth_ / 2;
-            storm::Text::DrawCentred(renderer_, assetStore_->GetFont("hudBig"),
-                                      "YOU DIED", cx, windowHeight_ / 2 - 55, white);
-            char clock[32];
-            std::snprintf(clock, sizeof(clock), "%.0fs", (double)deadTime_);
-            storm::Text::DrawCentred(renderer_, assetStore_->GetFont("hud"),
-                                      std::string("Survived ") + clock,
-                                      cx, windowHeight_ / 2 - 5, grey);
-            storm::Text::DrawCentred(renderer_, assetStore_->GetFont("hud"),
-                                      "Press R", cx, windowHeight_ / 2 + 30, white);
+            const SDL_Color gold{251, 191, 36, 255};  // ITCH gold: new best only
+            const int cx = windowWidth_ / 2;
+            int lineY = box.y + pad;
+            auto line = [&](TTF_Font *font, const std::string &text, SDL_Color c) {
+                lineY += storm::Text::DrawCentred(renderer_, font, text, cx, lineY, c).y + gap;
+            };
+            line(big, title, white);
+            line(hud, survived, white);
+            line(hud, best, newBest_ ? gold : grey);
+            lineY += gap;  // a little extra air before the prompt
+            line(hud, retry, white);
         } else if (player_) {
-            // Survival clock top-right while alive.
-            char clock[32];
-            std::snprintf(clock, sizeof(clock), "%.0fs", (double)elapsed_);
-            storm::Text::Draw(renderer_, assetStore_->GetFont("hud"), clock,
-                               windowWidth_ - 80, 10, SDL_Color{255, 255, 255, 255});
+            // Run clock + best, top-right, right-aligned to a 20px margin so a
+            // growing minute count never walks off the edge. The clock uses the
+            // same mm:ss format as the death screen.
+            TTF_Font *hud = assetStore_->GetFont("hud");
+            const std::string clock =
+                last_stand::FormatClock(static_cast<int>(elapsed_));
+            const SDL_Point clockSize = storm::Text::Measure(hud, clock);
+            storm::Text::Draw(renderer_, hud, clock, windowWidth_ - 20 - clockSize.x,
+                              10, SDL_Color{255, 255, 255, 255});
+            const std::string best =
+                "BEST " + last_stand::FormatClock(scoreBoard_.bestSeconds);
+            const SDL_Point bestSize = storm::Text::Measure(hud, best);
+            storm::Text::Draw(renderer_, hud, best, windowWidth_ - 20 - bestSize.x,
+                              42, SDL_Color{180, 180, 180, 255});
         }
     }
 
