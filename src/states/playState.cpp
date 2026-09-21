@@ -261,13 +261,13 @@ bool UpdateDeaths(storm::Registry &registry, const char *group) {
             entity.GetComponent<HealthComponent>();
         if (health.hp <= 0) {
             auto pos = entity.GetComponent<storm::TransformComponent>().position;
-            // 12% drop: cycle kinds for visible variety.
+            // 1 in 8 deaths drops a pickup; RollDrop picks the kind. Health is
+            // in that table now (see pickups.h) — it used to be unreachable.
             static unsigned dropSeed = 987;
             dropSeed = dropSeed * 1664525u + 1013904223u;
-            if (dropSeed % 8 == 0) {
-                last_stand::PickupKind k = static_cast<last_stand::PickupKind>(dropSeed % 3);
-                last_stand::SpawnPickup(registry, pos, k);
-            }
+            last_stand::PickupKind kind;
+            if (last_stand::RollDrop(dropSeed, kind))
+                last_stand::SpawnPickup(registry, pos, kind);
             registry.KillEntity(entity);
             anyDead = true;
         }
@@ -600,6 +600,25 @@ void PlayState::render() {
 
     registry_.GetSystem<RenderSystem>().Update(renderer_, *assetStore_,
                                                &camera_);
+
+    // Health pickups carry no sprite (the pack ships no health icon), so draw
+    // them as a green cross in world space, before lighting so the vignette
+    // dims them like every other pickup.
+    if (registry_.DoesGroupExist("pickups")) {
+        for (const auto &e : registry_.GetEntitiesByGroup("pickups")) {
+            const auto *pk = e.TryGetComponent<last_stand::PickupComponent>();
+            if (!pk || pk->kind != last_stand::PickupKind::Health) continue;
+            const glm::vec2 p = e.GetComponent<TransformComponent>().position;
+            const int x = static_cast<int>(p.x) - camera_.x - 6;
+            const int y = static_cast<int>(p.y) - camera_.y - 6;
+            SDL_SetRenderDrawColor(renderer_, 34, 197, 94, 255);  // health green
+            const SDL_Rect vertical{x + 4, y, 4, 12};
+            const SDL_Rect horizontal{x, y + 4, 12, 4};
+            SDL_RenderFillRect(renderer_, &vertical);
+            SDL_RenderFillRect(renderer_, &horizontal);
+        }
+    }
+
     lighting_.Draw(renderer_);
     // HUD + minimap AFTER lighting or vignette dims them.
     {
@@ -632,7 +651,14 @@ void PlayState::render() {
         if (player_) dot(player_->GetComponent<TransformComponent>().position, 2, 0, 255, 0);
         for (auto &e : registry_.GetEntitiesByGroup("enemies")) dot(e.GetComponent<TransformComponent>().position, 2, 255, 0, 0);
         if (registry_.DoesGroupExist("pickups"))
-            for (auto &e : registry_.GetEntitiesByGroup("pickups")) dot(e.GetComponent<TransformComponent>().position, 2, 255, 255, 0);
+            for (auto &e : registry_.GetEntitiesByGroup("pickups")) {
+                const auto *pk = e.TryGetComponent<last_stand::PickupComponent>();
+                const glm::vec2 p = e.GetComponent<TransformComponent>().position;
+                if (pk && pk->kind == last_stand::PickupKind::Health)
+                    dot(p, 2, 34, 197, 94);   // health green, matches the cross
+                else
+                    dot(p, 2, 255, 255, 0);   // weapon yellow
+            }
         if (dead_) {
             // Death overlay: dim the world, then a panel sized to its own
             // text so no line can collide at any point size.

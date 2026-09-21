@@ -49,13 +49,21 @@ static const char *PickupTexture(PickupKind kind) {
 }
 
 storm::Entity SpawnPickup(storm::Registry &registry, glm::vec2 at, PickupKind kind) {
-    int w = 19, h = 10;
-    if (kind == PickupKind::Machine) { w = 33; h = 10; }
-    if (kind == PickupKind::Silencer) { w = 25; h = 10; }
     storm::Entity e = registry.CreateEntity();
     e.Group("pickups");
     e.AddComponent<storm::TransformComponent>(at, glm::vec2(1.0f, 1.0f), 0.0);
     e.AddComponent<storm::RigidBodyComponent>(glm::vec2(0.0f, 0.0f));
+    if (kind == PickupKind::Health) {
+        // No health icon ships with the pack, so the health pickup carries no
+        // sprite: playState draws it as a green cross (see render()). The
+        // collider still gives it the same pickup radius as a weapon.
+        e.AddComponent<storm::CircleColliderComponent>(12.0f, glm::vec2(6.0f, 6.0f));
+        e.AddComponent<PickupComponent>(PickupComponent{kind});
+        return e;
+    }
+    int w = 19, h = 10;
+    if (kind == PickupKind::Machine) { w = 33; h = 10; }
+    if (kind == PickupKind::Silencer) { w = 25; h = 10; }
     e.AddComponent<storm::CircleColliderComponent>(12.0f, glm::vec2(w * 0.5f, h * 0.5f));
     e.AddComponent<storm::SpriteComponent>(PickupTexture(kind), w, h, 1);
     e.AddComponent<PickupComponent>(PickupComponent{kind});
