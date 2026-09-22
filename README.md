@@ -8,8 +8,10 @@
 - **Melee-only enemies**: zombie, robot and old man chase, face their target, and push apart so a crowd reads as a crowd instead of a stack
 - **Pooled bullets that park honestly**: 128 bullets claimed from a free-list, inactive ones parked one per broadphase cell so they never pair with each other
 - **Weapon pickups change the gun and the look**: gun, machine (fast, spread) and silencer (slow, 2 damage) swap fire rate and the survivor sprite
+- **Rare health drops**: a green cross that refills the bar, so a lucky kill can undo a bad trade
 - **Minimap and HUD after lighting**: health bar, arena outline, player/enemy/pickup dots — drawn after the vignette so the UI stays bright
-- **Pure-function unit tests** cover aim, regen, the spawn curve, wall resolution, the pool free-list and the world→minimap transform (`specs/`, run with `make -f Makefile.specs test`)
+- **Title screen and a persisted best run**: the menu shows the longest run so far, the death panel shows Survived / Best / NEW BEST!, and the best is kept in `last-stand.sav`
+- **Pure-function unit tests** cover aim, regen, the spawn curve, wall resolution, the pool free-list, the minimap transform, the score clock and store, the pickup drop table and the menu input (`specs/`, 70 specs, run with `make -f Makefile.specs test`)
 
 Clean C++17, no frameworks beyond SDL2 + the engine. Build: `make && make run`.
 
@@ -21,6 +23,7 @@ Built on [Storm! Engine v2](https://github.com/SamsWebs/storm-engine-v2) 2.3.1.
 
 | Input | Action |
 |-------|--------|
+| `Enter` / `Space` | Start from the title screen |
 | `W` / `A` / `S` / `D` | Move |
 | Mouse | Aim (the survivor turns to face the cursor) |
 | Click | Fire |
@@ -28,8 +31,8 @@ Built on [Storm! Engine v2](https://github.com/SamsWebs/storm-engine-v2) 2.3.1.
 | `Esc` | Quit |
 
 **Gamepad (Xbox-style layout)**: left stick moves, right stick aims, right
-trigger or `A` fires, `Start` / `A` restarts after death, d-pad moves when the
-left stick is dead.
+trigger or `A` fires, `Start` / `A` starts from the title and restarts after
+death, d-pad moves when the left stick is dead.
 
 ## Why this game
 

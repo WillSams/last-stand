@@ -47,11 +47,12 @@ void Game::Initialize() {
     }
 
     // The state machine owns every state pointer -- pass `new`-allocated states
-    // and never delete them yourself. assetStore is moved into the first state;
-    // pass a raw pointer or reference to any state after this one.
+    // and never delete them yourself. assetStore is moved into the first state
+    // (the title screen), which moves it on into PlayState when the run starts;
+    // pass a raw pointer or reference to any state after the first.
     gameStateMachine.changeState(
-        new PlayState(renderer, windowWidth, windowHeight, isDebugging,
-                      std::move(assetStore), isRunning));
+        new TitleState(renderer, windowWidth, windowHeight, isDebugging,
+                       std::move(assetStore), isRunning, &gameStateMachine));
 
     isRunning = true;
 }
