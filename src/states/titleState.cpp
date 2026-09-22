@@ -119,7 +119,7 @@ void TitleState::render() {
                              "Kite the horde. Shoot what closes in.",
                              cx, windowHeight_ / 2 - 40, grey);
     storm::Text::DrawCentred(renderer_, assetStore_->GetFont("hud"),
-                             "Press Enter / A to start", cx,
+                             "Press Enter / Space / A to start", cx,
                              windowHeight_ / 2 + 20, white);
     storm::Text::DrawCentred(renderer_, assetStore_->GetFont("hud"),
                              "Esc to quit", cx, windowHeight_ / 2 + 60, grey);

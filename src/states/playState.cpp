@@ -676,7 +676,7 @@ void PlayState::render() {
             const std::string best =
                 newBest_ ? std::string("NEW BEST!")
                          : "Best " + last_stand::FormatClock(scoreBoard_.bestSeconds);
-            const std::string retry = "Press R to retry";
+            const std::string retry = "Press R / A to retry";
 
             const int gap = 8;
             const int pad = 20;
